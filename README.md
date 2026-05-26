@@ -1,1 +1,1 @@
-# gwm-tamplates
+# gwm-templates
