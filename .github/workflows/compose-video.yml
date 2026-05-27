@@ -26,7 +26,7 @@ jobs:
       - name: Download beats and music
         env:
           BEATS: ${{ inputs.beats_json }}
-          MUSIC_URL: ${{ inputs.music_url }}
+          MUSIC_URL: ${{ secrets.SUPABASE_URL }}/storage/v1/object/public/${{ inputs.music_url }}
         run: |
           echo "$BEATS" > beats.json
           cat beats.json
