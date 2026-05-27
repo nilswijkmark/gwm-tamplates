@@ -31,7 +31,9 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           echo "$BEATS" > beats.json
-          curl -L "$MUSIC_URL" -o music_raw.mp3
+cat beats.json
+echo "MUSIC: $MUSIC_URL"
+curl -L "$MUSIC_URL" -o music_raw.mp3
           # Download each beat mp4 from Supabase
           python3 -c "
           import json, subprocess, os
