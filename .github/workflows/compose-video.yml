@@ -27,8 +27,6 @@ jobs:
         env:
           BEATS: ${{ inputs.beats_json }}
           MUSIC_URL: ${{ inputs.music_url }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           echo "$BEATS" > beats.json
           cat beats.json
