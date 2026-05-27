@@ -1,0 +1,109 @@
+name: Compose GWM Promo Video
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_slug:
+        description: 'Video slug (e.g. excuses)'
+        required: true
+      beats_json:
+        description: 'JSON array of beat file paths in Supabase'
+        required: true
+      music_url:
+        description: 'Signed URL for music file'
+        required: true
+      total_duration:
+        description: 'Total video duration in seconds'
+        required: true
+
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install ffmpeg
+        run: sudo apt-get install -y ffmpeg
+
+      - name: Download beats and music
+        env:
+          BEATS: ${{ inputs.beats_json }}
+          MUSIC_URL: ${{ inputs.music_url }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          echo "$BEATS" > beats.json
+          curl -L "$MUSIC_URL" -o music_raw.mp3
+          # Download each beat mp4 from Supabase
+          python3 -c "
+          import json, subprocess, os
+          beats = json.load(open('beats.json'))
+          for i, url in enumerate(beats):
+              subprocess.run(['curl', '-L', url, '-o', f'beat_{i}.mp4'])
+          "
+
+      - name: Process music bed
+        run: |
+          DURATION=${{ inputs.total_duration }}
+          ffmpeg -y -i music_raw.mp3 -t $DURATION \
+            -af "volume=0.14,afade=t=in:st=0:d=0.6,afade=t=out:st=$(echo "$DURATION - 1.2" | bc):d=1.2" \
+            -c:a aac -b:a 160k music.aac
+
+      - name: Concat beats + end card + music
+        run: |
+          # Count beat files
+          BEATS_COUNT=$(ls beat_*.mp4 | wc -l)
+          echo "Processing $BEATS_COUNT beats"
+          
+          # Build concat input args
+          INPUTS=""
+          FILTER=""
+          for i in $(seq 0 $((BEATS_COUNT-1))); do
+            INPUTS="$INPUTS -i beat_$i.mp4"
+            FILTER="${FILTER}[${i}:v]fps=30,settb=1/15360,setpts=PTS-STARTPTS,format=yuv420p[vn${i}];"
+            FILTER="${FILTER}[${i}:a]aresample=48000,asetpts=PTS-STARTPTS[an${i}];"
+          done
+          
+          ffmpeg -y $INPUTS -i music.aac \
+            -filter_complex "$FILTER" \
+            -map "[vn0]" -map "[an0]" \
+            -r 30 -c:v libx264 -pix_fmt yuv420p -crf 18 \
+            -c:a aac -b:a 160k -movflags +faststart \
+            output.mp4
+
+      - name: Verify output
+        run: |
+          DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=0 output.mp4)
+          echo "Output duration: $DURATION seconds"
+          SIZE=$(stat -c%s output.mp4)
+          echo "Output size: $SIZE bytes"
+          if (( $(echo "$DURATION < 14" | bc -l) )); then
+            echo "ERROR: Video too short!"
+            exit 1
+          fi
+
+      - name: Upload to Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SLUG: ${{ inputs.video_slug }}
+        run: |
+          curl -X PUT \
+            "$SUPABASE_URL/storage/v1/object/marketing/promo/output/$SLUG.mp4" \
+            -H "Authorization: Bearer $SUPABASE_KEY" \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "x-upsert: true" \
+            -H "Content-Type: video/mp4" \
+            --data-binary @output.mp4
+
+      - name: Sign output URL
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SLUG: ${{ inputs.video_slug }}
+        run: |
+          curl -X POST \
+            "$SUPABASE_URL/storage/v1/object/sign/marketing/promo/output/$SLUG.mp4" \
+            -H "Authorization: Bearer $SUPABASE_KEY" \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"expiresIn": 86400}' > signed_url.json
+          cat signed_url.json
