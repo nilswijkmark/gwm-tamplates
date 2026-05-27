@@ -35,11 +35,11 @@ jobs:
           # Download each beat mp4 from Supabase
           python3 -c "
           import json, subprocess, os
-          beats = json.load(open('beats.json'))
-          for i, url in enumerate(beats):
-              subprocess.run(['curl', '-L', url, '-o', f'beat_{i}.mp4'])
+          beats = json.loads(open('beats.json').read())
+          base = os.environ['SUPABASE_URL'] + '/storage/v1/object/public/'
+          for i, path in enumerate(beats):
+              subprocess.run(['curl', '-L', base + path, '-o', f'beat_{i}.mp4'])
           "
-
       - name: Process music bed
         run: |
           DURATION=${{ inputs.total_duration }}
