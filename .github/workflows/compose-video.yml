@@ -97,8 +97,8 @@ jobs:
               'eq=saturation=1.05',
               'vignette=angle=PI/5',
               'drawbox=x=0:y=900:w=1080:h=170:color=black@0.68:t=fill',
-              'drawbox=x=26:y=28:w=230:h=64:color='+chip+'@0.94:t=fill',
-              'drawbox=x=26:y=92:w=230:h=4:color=0xD4A84C@1:t=fill',
+              'drawbox=x=26:y=28:w=190:h=64:color='+chip+'@0.94:t=fill',
+              'drawbox=x=26:y=92:w=190:h=4:color=0xD4A84C@1:t=fill',
               'drawtext=fontsize=30:fontcolor=white:x=46:y=43:textfile='+chipFile
             ];
 
