@@ -52,11 +52,35 @@ jobs:
           node -e "
           const raw=(process.env.BEATS_METADATA||'').replace(/^=/,'');
           const beats=JSON.parse(raw);
-          const {execSync}=require('child_process');
+          const {execSync,writeFileSync}=require('child_process');
+          const fs=require('fs');
           const base='https://jrryyntxjiqbgrhoorbx.supabase.co/storage/v1/object/public/';
           beats.forEach((b,i)=>{
             const hflip=b.hflip==='true'?'hflip,':'';
             const chip='0x'+b.chip_color;
+            const charName=b.character.replace(/'/g,'\u2019');
+            const words=b.text.split(' ');
+            let chunks=[],cur=[];
+            words.forEach(w=>{
+              const test=[...cur,w].join(' ');
+              if(cur.length&&(test.length>22||cur.length>=4)){chunks.push(cur.join(' '));cur=[w];}
+              else cur.push(w);
+              if(/[.,?!;:]$/.test(w)&&cur.length){chunks.push(cur.join(' '));cur=[];}
+            });
+            if(cur.length)chunks.push(cur.join(' '));
+            const dur=parseFloat(b.duration_hint)||3;
+            const start=0.25;
+            const end=Math.max(start+0.4,Math.min(dur-0.2,dur));
+            const span=(end-start)/Math.max(1,chunks.length);
+            let captionFilter='';
+            chunks.forEach((chunk,ci)=>{
+              const s=(start+ci*span).toFixed(2);
+              const e=(start+(ci+1)*span).toFixed(2);
+              const tf='caption_'+i+'_'+ci+'.txt';
+              fs.writeFileSync(tf,chunk);
+              captionFilter+='drawtext=fontsize=36:fontcolor=white:x=(w-text_w)/2:y=960:textfile='+tf+':enable=between(t\\,'+s+'\\,'+e+'),';
+            });
+            captionFilter=captionFilter.replace(/,$/,'');
             const filter=
               '[0:v]'+hflip+'scale=-2:1080,crop=1080:1080:(iw-1080)/2:0,'+
               'colorchannelmixer=rr=1.05:gg=1.02:bb=0.92,eq=saturation=1.05,'+
@@ -64,7 +88,8 @@ jobs:
               'drawbox=x=0:y=900:w=1080:h=170:color=black@0.68:t=fill,'+
               'drawbox=x=26:y=28:w=170:h=64:color='+chip+'@0.94:t=fill,'+
               'drawbox=x=26:y=92:w=170:h=4:color=0xD4A84C@1:t=fill,'+
-              'drawtext=fontsize=30:fontcolor=white:x=46:y=43:text='+JSON.stringify(b.character)+
+              'drawtext=fontsize=30:fontcolor=white:x=46:y=43:text='+charName+','+
+              captionFilter+
               '[v]';
             const cmd='ffmpeg -y -i beat_raw_'+i+'.mp4 -filter_complex '+JSON.stringify(filter)+
               ' -map [v] -map 0:a -r 30 -c:v libx264 -pix_fmt yuv420p -crf 18 -c:a aac -b:a 160k beat_'+i+'.mp4';
@@ -73,18 +98,33 @@ jobs:
           });
           "
 
+      - name: Generate George VO
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          END_CARD_VO: "${{ inputs.end_card_vo }}"
+        run: |
+          CLEAN_VO="${END_CARD_VO#=}"
+          curl -s -X POST "https://api.elevenlabs.io/v1/text-to-speech/JBFqnCBsd6RMkjVDRZzb?output_format=mp3_44100_128" \
+            -H "xi-api-key: $ELEVENLABS_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"text\":\"$CLEAN_VO\",\"model_id\":\"eleven_multilingual_v2\",\"voice_settings\":{\"stability\":0.55,\"similarity_boost\":0.75,\"style\":0.20,\"use_speaker_boost\":true}}" \
+            -o george_vo.mp3
+          echo "George VO size: $(stat -c%s george_vo.mp3) bytes"
+
       - name: Generate end card
         run: |
           ffmpeg -y \
             -f lavfi -i color=c=0x2D6A4F:s=1080x1080:d=5.4:r=30 \
             -f lavfi -i anullsrc=r=48000:cl=stereo \
+            -i george_vo.mp3 \
             -filter_complex \
             "[0:v]format=yuv420p,vignette=PI/5,\
             drawtext=fontsize=110:fontcolor=white:x=(w-text_w)/2:y=220:text='GOLF WITH',\
             drawtext=fontsize=160:fontcolor=0xD4A84C:x=(w-text_w)/2:y=380:text='MATES',\
             drawtext=fontsize=38:fontcolor=0xF5E9D7:x=(w-text_w)/2:y=620:text='Track every shot. Out every ringer.',\
-            drawtext=fontsize=32:fontcolor=white@0.80:x=(w-text_w)/2:y=1020:text='golfwithmates.com'[v]" \
-            -map "[v]" -map 1:a \
+            drawtext=fontsize=32:fontcolor=white@0.80:x=(w-text_w)/2:y=1020:text='golfwithmates.com'[v];\
+            [1:a][2:a]amix=inputs=2:duration=first:dropout_transition=0[a]" \
+            -map "[v]" -map "[a]" \
             -t 5.4 \
             -r 30 -c:v libx264 -pix_fmt yuv420p -crf 18 \
             -c:a aac -b:a 160k end_card.mp4
