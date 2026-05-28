@@ -27,6 +27,9 @@ jobs:
   compose:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
       - name: Install dependencies
         run: sudo apt-get install -y ffmpeg bc
 
@@ -55,13 +58,26 @@ jobs:
           node -e "
           const raw=(process.env.BEATS_METADATA||'').replace(/^=/,'');
           const beats=JSON.parse(raw);
-          const {execSync,writeFileSync}=require('child_process');
+          const {execSync}=require('child_process');
           const fs=require('fs');
-          const base='https://jrryyntxjiqbgrhoorbx.supabase.co/storage/v1/object/public/';
+
+          const displayNameMap={
+            'Big Dave':'Big Dave','big_dave':'Big Dave','big dave':'Big Dave',
+            'Smug Tom':'Tom','smug_tom':'Tom','smug tom':'Tom',
+            'Sam':'Sam','sam':'Sam'
+          };
+
           beats.forEach((b,i)=>{
             const hflip=b.hflip==='true'?'hflip,':'';
             const chip='0x'+b.chip_color;
-            const charName=b.character.replace(/'/g,'\u2019');
+
+            // Strip any stray quotes, look up display name, write to textfile
+            const rawName=(b.character||'').replace(/['\"\`]/g,'').trim();
+            const displayName=displayNameMap[rawName]||rawName;
+            const chipFile='chip_'+i+'.txt';
+            fs.writeFileSync(chipFile,displayName);
+
+            // Caption chunks
             const words=b.text.split(' ');
             let chunks=[],cur=[];
             words.forEach(w=>{
@@ -71,32 +87,35 @@ jobs:
               if(/[.,?!;:]$/.test(w)&&cur.length){chunks.push(cur.join(' '));cur=[];}
             });
             if(cur.length)chunks.push(cur.join(' '));
+
             const dur=parseFloat(b.duration_hint)||3;
             const start=0.25;
             const end=Math.max(start+0.4,Math.min(dur-0.2,dur));
             const span=(end-start)/Math.max(1,chunks.length);
-            let captionFilter='';
+
+            // Build filter as array to avoid trailing comma bugs
+            const filterParts=[
+              '[0:v]'+hflip+'scale=-2:1080,crop=1080:1080:(iw-1080)/2:0',
+              'colorchannelmixer=rr=1.05:gg=1.02:bb=0.92,eq=saturation=1.05',
+              'vignette=PI/5',
+              'drawbox=x=0:y=900:w=1080:h=170:color=black@0.68:t=fill',
+              'drawbox=x=26:y=28:w=230:h=64:color='+chip+'@0.94:t=fill',
+              'drawbox=x=26:y=92:w=230:h=4:color=0xD4A84C@1:t=fill',
+              'drawtext=fontsize=30:fontcolor=white:x=46:y=43:textfile='+chipFile
+            ];
+
             chunks.forEach((chunk,ci)=>{
               const s=(start+ci*span).toFixed(2);
               const e=(start+(ci+1)*span).toFixed(2);
               const tf='caption_'+i+'_'+ci+'.txt';
               fs.writeFileSync(tf,chunk);
-              captionFilter+='drawtext=fontsize=36:fontcolor=white:x=(w-text_w)/2:y=960:textfile='+tf+':enable=between(t\\,'+s+'\\,'+e+'),';
+              filterParts.push('drawtext=fontsize=36:fontcolor=white:x=(w-text_w)/2:y=960:textfile='+tf+':enable=between(t\\,'+s+'\\,'+e+')');
             });
-            captionFilter=captionFilter.replace(/,$/,'');
-            const filter=
-              '[0:v]'+hflip+'scale=-2:1080,crop=1080:1080:(iw-1080)/2:0,'+
-              'colorchannelmixer=rr=1.05:gg=1.02:bb=0.92,eq=saturation=1.05,'+
-              'vignette=PI/5,'+
-              'drawbox=x=0:y=900:w=1080:h=170:color=black@0.68:t=fill,'+
-              'drawbox=x=26:y=28:w=170:h=64:color='+chip+'@0.94:t=fill,'+
-              'drawbox=x=26:y=92:w=170:h=4:color=0xD4A84C@1:t=fill,'+
-              'drawtext=fontsize=30:fontcolor=white:x=46:y=43:text='+charName+','+
-              captionFilter+
-              '[v]';
+
+            const filter=filterParts.join(',')+'[v]';
             const cmd='ffmpeg -y -i beat_raw_'+i+'.mp4 -filter_complex '+JSON.stringify(filter)+
               ' -map [v] -map 0:a -r 30 -c:v libx264 -pix_fmt yuv420p -crf 18 -c:a aac -b:a 160k beat_'+i+'.mp4';
-            console.log('Composing beat '+i+': '+b.character);
+            console.log('Composing beat '+i+': '+displayName);
             execSync(cmd,{stdio:'inherit'});
           });
           "
@@ -106,4 +125,91 @@ jobs:
           GEORGE_VO_URL: "${{ inputs.george_vo_url }}"
         run: |
           CLEAN_URL="${GEORGE_VO_URL#=}"
-          curl -L "https://jrryyntxjiqbgrhoorbx.supabase.co/storage/v1${CLEAN_URL}" -o george_v
+          curl -L "https://jrryyntxjiqbgrhoorbx.supabase.co/storage/v1${CLEAN_URL}" -o george_vo.mp3
+          echo "George VO size: $(stat -c%s george_vo.mp3) bytes"
+
+      - name: Generate end card
+        run: |
+          ffmpeg -y \
+            -f lavfi -i color=c=0x2D6A4F:s=1080x1080:d=5.4:r=30 \
+            -loop 1 -i assets/app_store_badge.png \
+            -f lavfi -i anullsrc=r=48000:cl=stereo \
+            -i george_vo.mp3 \
+            -filter_complex \
+            "[0:v]format=yuv420p,vignette=PI/5,\
+            drawtext=fontsize=110:fontcolor=white:x=(w-text_w)/2:y=220:text='GOLF WITH',\
+            drawtext=fontsize=160:fontcolor=0xD4A84C:x=(w-text_w)/2:y=380:text='MATES',\
+            drawtext=fontsize=38:fontcolor=0xF5E9D7:x=(w-text_w)/2:y=620:text='Track every shot. Out every ringer.',\
+            drawtext=fontsize=32:fontcolor=white@0.80:x=(w-text_w)/2:y=1020:text='golfwithmates.com'[base];\
+            [1:v]scale=400:134:flags=lanczos[badge];\
+            [base][badge]overlay=x=340:y='if(lt(t,1.8),1200,if(lt(t,2.3),1200-(t-1.8)*820,790))'[v];\
+            [2:a][3:a]amix=inputs=2:duration=first:dropout_transition=0[a]" \
+            -map "[v]" -map "[a]" \
+            -t 5.4 \
+            -r 30 -c:v libx264 -pix_fmt yuv420p -crf 18 \
+            -c:a aac -b:a 160k end_card.mp4
+
+      - name: Concat beats and end card with music
+        run: |
+          BEATS_COUNT=$(ls beat_[0-9]*.mp4 | wc -l)
+          echo "Concatenating $BEATS_COUNT beats + end card"
+          INPUTS=""
+          FILTER=""
+          CONCAT_V=""
+          CONCAT_A=""
+          for i in $(seq 0 $((BEATS_COUNT-1))); do
+            INPUTS="$INPUTS -i beat_$i.mp4"
+            FILTER="${FILTER}[${i}:v]fps=30,settb=1/15360,setpts=PTS-STARTPTS,format=yuv420p[vn${i}];[${i}:a]aresample=48000,asetpts=PTS-STARTPTS[an${i}];"
+            CONCAT_V="${CONCAT_V}[vn${i}]"
+            CONCAT_A="${CONCAT_A}[an${i}]"
+          done
+          EC=$BEATS_COUNT
+          INPUTS="$INPUTS -i end_card.mp4 -i music.aac"
+          FILTER="${FILTER}[${EC}:v]fps=30,settb=1/15360,setpts=PTS-STARTPTS,format=yuv420p[vnec];[${EC}:a]aresample=48000,asetpts=PTS-STARTPTS[anec];"
+          TOTAL=$((BEATS_COUNT+1))
+          FILTER="${FILTER}${CONCAT_V}[vnec]concat=n=${TOTAL}:v=1:a=0[outv];"
+          FILTER="${FILTER}${CONCAT_A}[anec]concat=n=${TOTAL}:v=0:a=1[outa_dry];"
+          FILTER="${FILTER}[$((BEATS_COUNT+1)):a]aresample=48000,volume=0.14[music];[outa_dry][music]amix=inputs=2:duration=first:dropout_transition=0[outa]"
+          ffmpeg -y $INPUTS \
+            -filter_complex "$FILTER" \
+            -map "[outv]" -map "[outa]" \
+            -r 30 -c:v libx264 -pix_fmt yuv420p -crf 18 \
+            -c:a aac -b:a 160k -movflags +faststart \
+            output.mp4
+
+      - name: Verify output
+        run: |
+          DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=0 output.mp4)
+          echo "Output duration: $DURATION seconds"
+          SIZE=$(stat -c%s output.mp4)
+          echo "Output size: $SIZE bytes"
+
+      - name: Upload to Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SLUG: ${{ inputs.video_slug }}
+        run: |
+          CLEAN_SLUG="${SLUG#=}"
+          curl -X PUT \
+            "$SUPABASE_URL/storage/v1/object/marketing/promo/output/$CLEAN_SLUG.mp4" \
+            -H "Authorization: Bearer $SUPABASE_KEY" \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "x-upsert: true" \
+            -H "Content-Type: video/mp4" \
+            --data-binary @output.mp4
+
+      - name: Sign output URL
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SLUG: ${{ inputs.video_slug }}
+        run: |
+          CLEAN_SLUG="${SLUG#=}"
+          curl -X POST \
+            "$SUPABASE_URL/storage/v1/object/sign/marketing/promo/output/$CLEAN_SLUG.mp4" \
+            -H "Authorization: Bearer $SUPABASE_KEY" \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"expiresIn": 86400}' > signed_url.json
+          cat signed_url.json
