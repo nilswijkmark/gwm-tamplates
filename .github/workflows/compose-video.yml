@@ -1,5 +1,4 @@
 name: Compose GWM Promo Video
-
 on:
   workflow_dispatch:
     inputs:
@@ -15,33 +14,28 @@ on:
       total_duration:
         description: 'Total video duration in seconds'
         required: true
-
 jobs:
   compose:
     runs-on: ubuntu-latest
-    steps: 
+    steps:
       - name: Install ffmpeg
         run: sudo apt-get install -y ffmpeg
       - name: Download beats and music
         env:
-            BEATS_JSON: "${{ inputs.beats_json }}"
-          run: |
-            curl -L "https://jrryyntxjiqbgrhoorbx.supabase.co/storage/v1/object/public/${{ inputs.music_url }}" -o music_raw.mp3
-            node -e "const base='https://jrryyntxjiqbgrhoorbx.supabase.co/storage/v1/object/public/';const beats=JSON.parse(process.env.BEATS_JSON);const {execSync}=require('child_process');beats.forEach((p,i)=>{console.log('Beat '+i+': '+p);execSync('curl -L '+JSON.stringify(base+p)+' -o beat_'+i+'.mp4',{stdio:'inherit'});});"
+          BEATS_JSON: "${{ inputs.beats_json }}"
+        run: |
+          curl -L "https://jrryyntxjiqbgrhoorbx.supabase.co/storage/v1/object/public/${{ inputs.music_url }}" -o music_raw.mp3
+          node -e "const base='https://jrryyntxjiqbgrhoorbx.supabase.co/storage/v1/object/public/';const beats=JSON.parse(process.env.BEATS_JSON);const {execSync}=require('child_process');beats.forEach((p,i)=>{console.log('Beat '+i+': '+p);execSync('curl -L '+JSON.stringify(base+p)+' -o beat_'+i+'.mp4',{stdio:'inherit'});});"
       - name: Process music bed
         run: |
           DURATION=${{ inputs.total_duration }}
           ffmpeg -y -i music_raw.mp3 -t $DURATION \
             -af "volume=0.14,afade=t=in:st=0:d=0.6,afade=t=out:st=$(echo "$DURATION - 1.2" | bc):d=1.2" \
             -c:a aac -b:a 160k music.aac
-
       - name: Concat beats + end card + music
         run: |
-          # Count beat files
           BEATS_COUNT=$(ls beat_*.mp4 | wc -l)
           echo "Processing $BEATS_COUNT beats"
-          
-          # Build concat input args
           INPUTS=""
           FILTER=""
           for i in $(seq 0 $((BEATS_COUNT-1))); do
@@ -49,14 +43,12 @@ jobs:
             FILTER="${FILTER}[${i}:v]fps=30,settb=1/15360,setpts=PTS-STARTPTS,format=yuv420p[vn${i}];"
             FILTER="${FILTER}[${i}:a]aresample=48000,asetpts=PTS-STARTPTS[an${i}];"
           done
-          
           ffmpeg -y $INPUTS -i music.aac \
             -filter_complex "$FILTER" \
             -map "[vn0]" -map "[an0]" \
             -r 30 -c:v libx264 -pix_fmt yuv420p -crf 18 \
             -c:a aac -b:a 160k -movflags +faststart \
             output.mp4
-
       - name: Verify output
         run: |
           DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=0 output.mp4)
@@ -67,7 +59,6 @@ jobs:
             echo "ERROR: Video too short!"
             exit 1
           fi
-
       - name: Upload to Supabase
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -81,7 +72,6 @@ jobs:
             -H "x-upsert: true" \
             -H "Content-Type: video/mp4" \
             --data-binary @output.mp4
-
       - name: Sign output URL
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
