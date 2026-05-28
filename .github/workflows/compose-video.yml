@@ -26,9 +26,9 @@ jobs:
       - name: Download beats and music
         env:
           BEATS: ${{ inputs.beats_json }}
-          MUSIC_URL: ${{ secrets.SUPABASE_URL }}/storage/v1/object/public/${{ inputs.music_url }}
+          MUSIC_URL: ${{ format('{0}/storage/v1/object/public/{1}', secrets.SUPABASE_URL, inputs.music_url) }}
         run: |
-          printf '%s' "$BEATS" > beats.json
+          printf '%s\n' "$BEATS" > beats.json
           cat beats.json
           echo "MUSIC: $MUSIC_URL"
           curl -L "$MUSIC_URL" -o music_raw.mp3
@@ -36,7 +36,7 @@ jobs:
           python3 -c "
           import json, subprocess, os
           beats = json.loads(open('beats.json').read())
-          base = os.environ['SUPABASE_URL'] + '/storage/v1/object/public/'
+          base = 'https://jrryyntxjiqbgrhoorbx.supabase.co/storage/v1/object/public/'
           for i, path in enumerate(beats):
               subprocess.run(['curl', '-L', base + path, '-o', f'beat_{i}.mp4'])
           "
