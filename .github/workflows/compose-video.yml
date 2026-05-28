@@ -25,7 +25,7 @@ jobs:
           BEATS_JSON: "${{ inputs.beats_json }}"
         run: |
           curl -L "https://jrryyntxjiqbgrhoorbx.supabase.co/storage/v1/object/public/${{ inputs.music_url }}" -o music_raw.mp3
-          node -e "const base='https://jrryyntxjiqbgrhoorbx.supabase.co/storage/v1/object/public/';const beats=JSON.parse(process.env.BEATS_JSON);const {execSync}=require('child_process');beats.forEach((p,i)=>{console.log('Beat '+i+': '+p);execSync('curl -L '+JSON.stringify(base+p)+' -o beat_'+i+'.mp4',{stdio:'inherit'});});"
+          node -e "const raw=(process.env.BEATS_JSON||'').replace(/^=/,'');const base='https://jrryyntxjiqbgrhoorbx.supabase.co/storage/v1/object/public/';const beats=JSON.parse(raw);const {execSync}=require('child_process');beats.forEach((p,i)=>{console.log('Beat '+i+': '+p);execSync('curl -L '+JSON.stringify(base+p)+' -o beat_'+i+'.mp4',{stdio:'inherit'});});"
       - name: Process music bed
         run: |
           DURATION=${{ inputs.total_duration }}
