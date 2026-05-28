@@ -24,20 +24,16 @@ jobs:
         run: sudo apt-get install -y ffmpeg
 
       - name: Download beats and music
-        env:
-          BEATS: ${{ inputs.beats_json }}
         run: |
-          printf '%s\n' "$BEATS" > beats.json
-          cat beats.json
           curl -L "https://jrryyntxjiqbgrhoorbx.supabase.co/storage/v1/object/public/${{ inputs.music_url }}" -o music_raw.mp3
           # Download each beat mp4 from Supabase
           python3 -c "
-          import json, subprocess, os
-          beats = json.loads(open('beats.json').read())
+          import json, subprocess
+          beats = json.loads('${{ inputs.beats_json }}')
           base = 'https://jrryyntxjiqbgrhoorbx.supabase.co/storage/v1/object/public/'
           for i, path in enumerate(beats):
-              subprocess.run(['curl', '-L', base + path, '-o', f'beat_{i}.mp4'])
-          "
+          subprocess.run(['curl', '-L', base + path, '-o', f'beat_{i}.mp4'])
+"
       - name: Process music bed
         run: |
           DURATION=${{ inputs.total_duration }}
