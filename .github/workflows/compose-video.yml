@@ -48,7 +48,7 @@ jobs:
         run: |
           DURATION="${TOTAL_DURATION#=}"
           ffmpeg -y -i music_raw.mp3 -t $DURATION \
-            -af "volume=0.14,afade=t=in:st=0:d=0.6,afade=t=out:st=$(echo "$DURATION - 1.2" | bc):d=1.2" \
+            -af "volume=0.28,afade=t=in:st=0:d=0.6,afade=t=out:st=$(echo "$DURATION - 1.2" | bc):d=1.2" \
             -c:a aac -b:a 160k music.aac
 
       - name: Compose beats
@@ -80,7 +80,7 @@ jobs:
             let chunks=[],cur=[];
             words.forEach(w=>{
               const test=[...cur,w].join(' ');
-              if(cur.length&&(test.length>22||cur.length>=4)){chunks.push(cur.join(' '));cur=[w];}
+              if(cur.length&&(test.length>28||cur.length>=5)){chunks.push(cur.join(' '));cur=[w];}
               else cur.push(w);
               if(/[.,?!;:]$/.test(w)&&cur.length){chunks.push(cur.join(' '));cur=[];}
             });
@@ -88,7 +88,7 @@ jobs:
 
             const dur=parseFloat(b.duration_hint)||3;
             const start=0.25;
-            const end=Math.max(start+0.4,Math.min(dur-0.2,dur));
+            const end=Math.max(start+0.4,Math.min(dur-0.1,dur));
             const span=(end-start)/Math.max(1,chunks.length);
 
             const filterParts=[
@@ -160,22 +160,22 @@ jobs:
           CONCAT_A=""
           for i in $(seq 0 $((BEATS_COUNT-1))); do
             INPUTS="$INPUTS -i beat_$i.mp4"
-            FILTER="${FILTER}[${i}:v]fps=30,settb=1/15360,setpts=PTS-STARTPTS,format=yuv420p[vn${i}];[${i}:a]aresample=48000,asetpts=PTS-STARTPTS[an${i}];"
+            FILTER="${FILTER}[${i}:v]fps=30,settb=1/15360,setpts=PTS-STARTPTS,format=yuv420p[vn${i}];[${i}:a]aresample=48000,aformat=channel_layouts=stereo,asetpts=PTS-STARTPTS[an${i}];"
             CONCAT_V="${CONCAT_V}[vn${i}]"
             CONCAT_A="${CONCAT_A}[an${i}]"
           done
           EC=$BEATS_COUNT
           INPUTS="$INPUTS -i end_card.mp4 -i music.aac"
-          FILTER="${FILTER}[${EC}:v]fps=30,settb=1/15360,setpts=PTS-STARTPTS,format=yuv420p[vnec];[${EC}:a]aresample=48000,asetpts=PTS-STARTPTS[anec];"
+          FILTER="${FILTER}[${EC}:v]fps=30,settb=1/15360,setpts=PTS-STARTPTS,format=yuv420p[vnec];[${EC}:a]aresample=48000,aformat=channel_layouts=stereo,asetpts=PTS-STARTPTS[anec];"
           TOTAL=$((BEATS_COUNT+1))
           FILTER="${FILTER}${CONCAT_V}[vnec]concat=n=${TOTAL}:v=1:a=0[outv];"
           FILTER="${FILTER}${CONCAT_A}[anec]concat=n=${TOTAL}:v=0:a=1[outa_dry];"
-          FILTER="${FILTER}[$((BEATS_COUNT+1)):a]aresample=48000,volume=0.14[music];[outa_dry][music]amix=inputs=2:duration=first:dropout_transition=0[outa]"
+          FILTER="${FILTER}[$((BEATS_COUNT+1)):a]aresample=48000,aformat=channel_layouts=stereo[music];[outa_dry][music]amix=inputs=2:duration=first:dropout_transition=0:weights='1 0.3'[outa]"
           ffmpeg -y $INPUTS \
             -filter_complex "$FILTER" \
             -map "[outv]" -map "[outa]" \
             -r 30 -c:v libx264 -pix_fmt yuv420p -crf 18 \
-            -c:a aac -b:a 160k -movflags +faststart \
+            -c:a aac -b:a 192k -movflags +faststart \
             output.mp4
 
       - name: Verify output
