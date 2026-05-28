@@ -71,13 +71,11 @@ jobs:
             const hflip=b.hflip==='true'?'hflip,':'';
             const chip='0x'+b.chip_color;
 
-            // Strip any stray quotes, look up display name, write to textfile
             const rawName=(b.character||'').replace(/['\"\`]/g,'').trim();
             const displayName=displayNameMap[rawName]||rawName;
             const chipFile='chip_'+i+'.txt';
             fs.writeFileSync(chipFile,displayName);
 
-            // Caption chunks
             const words=b.text.split(' ');
             let chunks=[],cur=[];
             words.forEach(w=>{
@@ -93,11 +91,11 @@ jobs:
             const end=Math.max(start+0.4,Math.min(dur-0.2,dur));
             const span=(end-start)/Math.max(1,chunks.length);
 
-            // Build filter as array to avoid trailing comma bugs
             const filterParts=[
               '[0:v]'+hflip+'scale=-2:1080,crop=1080:1080:(iw-1080)/2:0',
-              'colorchannelmixer=rr=1.05:gg=1.02:bb=0.92,eq=saturation=1.05',
-              'vignette=PI/5',
+              'colorchannelmixer=rr=1.05:gg=1.02:bb=0.92',
+              'eq=saturation=1.05',
+              'vignette=angle=PI/5',
               'drawbox=x=0:y=900:w=1080:h=170:color=black@0.68:t=fill',
               'drawbox=x=26:y=28:w=230:h=64:color='+chip+'@0.94:t=fill',
               'drawbox=x=26:y=92:w=230:h=4:color=0xD4A84C@1:t=fill',
@@ -109,11 +107,16 @@ jobs:
               const e=(start+(ci+1)*span).toFixed(2);
               const tf='caption_'+i+'_'+ci+'.txt';
               fs.writeFileSync(tf,chunk);
-              filterParts.push('drawtext=fontsize=36:fontcolor=white:x=(w-text_w)/2:y=960:textfile='+tf+':enable=between(t\\,'+s+'\\,'+e+')');
+              filterParts.push('drawtext=fontsize=36:fontcolor=white:x=(w-text_w)/2:y=960:textfile='+tf+':enable=between(t\\\\,'+s+'\\\\,'+e+')');
             });
 
             const filter=filterParts.join(',')+'[v]';
-            const cmd='ffmpeg -y -i beat_raw_'+i+'.mp4 -filter_complex '+JSON.stringify(filter)+
+
+            // Write filter to file to avoid shell quoting issues
+            const filterFile='filter_'+i+'.txt';
+            fs.writeFileSync(filterFile, filter);
+
+            const cmd='ffmpeg -y -i beat_raw_'+i+'.mp4 -filter_complex_script '+filterFile+
               ' -map [v] -map 0:a -r 30 -c:v libx264 -pix_fmt yuv420p -crf 18 -c:a aac -b:a 160k beat_'+i+'.mp4';
             console.log('Composing beat '+i+': '+displayName);
             execSync(cmd,{stdio:'inherit'});
