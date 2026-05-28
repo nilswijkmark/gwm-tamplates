@@ -23,12 +23,16 @@ jobs:
       - name: Download beats and music
         env:
           BEATS_JSON: "${{ inputs.beats_json }}"
+          MUSIC_URL: "${{ inputs.music_url }}"
         run: |
-          curl -L "https://jrryyntxjiqbgrhoorbx.supabase.co/storage/v1/object/public/${{ inputs.music_url }}" -o music_raw.mp3
+          CLEAN_MUSIC="${MUSIC_URL#=}"
+          curl -L "https://jrryyntxjiqbgrhoorbx.supabase.co/storage/v1/object/public/${CLEAN_MUSIC}" -o music_raw.mp3
           node -e "const raw=(process.env.BEATS_JSON||'').replace(/^=/,'');const base='https://jrryyntxjiqbgrhoorbx.supabase.co/storage/v1/object/public/';const beats=JSON.parse(raw);const {execSync}=require('child_process');beats.forEach((p,i)=>{console.log('Beat '+i+': '+p);execSync('curl -L '+JSON.stringify(base+p)+' -o beat_'+i+'.mp4',{stdio:'inherit'});});"
       - name: Process music bed
+        env:
+          TOTAL_DURATION: "${{ inputs.total_duration }}"
         run: |
-          DURATION=${{ inputs.total_duration }}
+          DURATION="${TOTAL_DURATION#=}"
           ffmpeg -y -i music_raw.mp3 -t $DURATION \
             -af "volume=0.14,afade=t=in:st=0:d=0.6,afade=t=out:st=$(echo "$DURATION - 1.2" | bc):d=1.2" \
             -c:a aac -b:a 160k music.aac
@@ -65,8 +69,9 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SLUG: ${{ inputs.video_slug }}
         run: |
+          CLEAN_SLUG="${SLUG#=}"
           curl -X PUT \
-            "$SUPABASE_URL/storage/v1/object/marketing/promo/output/$SLUG.mp4" \
+            "$SUPABASE_URL/storage/v1/object/marketing/promo/output/$CLEAN_SLUG.mp4" \
             -H "Authorization: Bearer $SUPABASE_KEY" \
             -H "apikey: $SUPABASE_KEY" \
             -H "x-upsert: true" \
@@ -78,8 +83,9 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SLUG: ${{ inputs.video_slug }}
         run: |
+          CLEAN_SLUG="${SLUG#=}"
           curl -X POST \
-            "$SUPABASE_URL/storage/v1/object/sign/marketing/promo/output/$SLUG.mp4" \
+            "$SUPABASE_URL/storage/v1/object/sign/marketing/promo/output/$CLEAN_SLUG.mp4" \
             -H "Authorization: Bearer $SUPABASE_KEY" \
             -H "apikey: $SUPABASE_KEY" \
             -H "Content-Type: application/json" \
