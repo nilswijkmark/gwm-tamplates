@@ -106,9 +106,10 @@ jobs:
           EC=$BEATS_COUNT
           INPUTS="$INPUTS -i end_card.mp4 -i music.aac"
           FILTER="${FILTER}[${EC}:v]fps=30,settb=1/15360,setpts=PTS-STARTPTS,format=yuv420p[vnec];[${EC}:a]aresample=48000,asetpts=PTS-STARTPTS[anec];"
-          FILTER="${FILTER}${CONCAT_V}[vnec]concat=n=$((BEATS_COUNT+1)):v=1:a=0[outv];"
-          FILTER="${FILTER}${CONCAT_A}[anec]amix=inputs=$((BEATS_COUNT+1)):duration=first[outa_dry];"
-          FILTER="${FILTER}[$((BEATS_COUNT+1)):a]aresample=48000[music];[outa_dry][music]amix=inputs=2:duration=first[outa]"
+          TOTAL=$((BEATS_COUNT+1))
+          FILTER="${FILTER}${CONCAT_V}[vnec]concat=n=${TOTAL}:v=1:a=0[outv];"
+          FILTER="${FILTER}${CONCAT_A}[anec]concat=n=${TOTAL}:v=0:a=1[outa_dry];"
+          FILTER="${FILTER}[$((BEATS_COUNT+1)):a]aresample=48000,volume=0.14[music];[outa_dry][music]amix=inputs=2:duration=first:dropout_transition=0[outa]"
           ffmpeg -y $INPUTS \
             -filter_complex "$FILTER" \
             -map "[outv]" -map "[outa]" \
