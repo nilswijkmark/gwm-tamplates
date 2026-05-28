@@ -28,7 +28,7 @@ jobs:
           BEATS: ${{ inputs.beats_json }}
           MUSIC_URL: ${{ secrets.SUPABASE_URL }}/storage/v1/object/public/${{ inputs.music_url }}
         run: |
-          echo "$BEATS" > beats.json
+          printf '%s' "$BEATS" > beats.json
           cat beats.json
           echo "MUSIC: $MUSIC_URL"
           curl -L "$MUSIC_URL" -o music_raw.mp3
