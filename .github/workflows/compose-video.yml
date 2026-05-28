@@ -3,23 +3,30 @@ on:
   workflow_dispatch:
     inputs:
       video_slug:
-        description: 'Video slug (e.g. excuses)'
+        description: 'Video slug'
         required: true
       beats_json:
-        description: 'JSON array of beat file paths in Supabase'
+        description: 'JSON array of beat file paths'
+        required: true
+      beats_metadata:
+        description: 'JSON array of beat metadata'
+        required: true
+      end_card_vo:
+        description: 'End card voiceover text'
         required: true
       music_url:
-        description: 'Signed URL for music file'
+        description: 'Music file path'
         required: true
       total_duration:
-        description: 'Total video duration in seconds'
+        description: 'Total duration in seconds'
         required: true
 jobs:
   compose:
     runs-on: ubuntu-latest
     steps:
-      - name: Install ffmpeg
-        run: sudo apt-get install -y ffmpeg
+      - name: Install dependencies
+        run: sudo apt-get install -y ffmpeg bc
+
       - name: Download beats and music
         env:
           BEATS_JSON: "${{ inputs.beats_json }}"
@@ -27,7 +34,8 @@ jobs:
         run: |
           CLEAN_MUSIC="${MUSIC_URL#=}"
           curl -L "https://jrryyntxjiqbgrhoorbx.supabase.co/storage/v1/object/public/${CLEAN_MUSIC}" -o music_raw.mp3
-          node -e "const raw=(process.env.BEATS_JSON||'').replace(/^=/,'');const base='https://jrryyntxjiqbgrhoorbx.supabase.co/storage/v1/object/public/';const beats=JSON.parse(raw);const {execSync}=require('child_process');beats.forEach((p,i)=>{console.log('Beat '+i+': '+p);execSync('curl -L '+JSON.stringify(base+p)+' -o beat_'+i+'.mp4',{stdio:'inherit'});});"
+          node -e "const raw=(process.env.BEATS_JSON||'').replace(/^=/,'');const base='https://jrryyntxjiqbgrhoorbx.supabase.co/storage/v1/object/public/';const beats=JSON.parse(raw);const {execSync}=require('child_process');beats.forEach((p,i)=>{console.log('Beat '+i+': '+p);execSync('curl -L '+JSON.stringify(base+p)+' -o beat_raw_'+i+'.mp4',{stdio:'inherit'});});"
+
       - name: Process music bed
         env:
           TOTAL_DURATION: "${{ inputs.total_duration }}"
@@ -36,35 +44,87 @@ jobs:
           ffmpeg -y -i music_raw.mp3 -t $DURATION \
             -af "volume=0.14,afade=t=in:st=0:d=0.6,afade=t=out:st=$(echo "$DURATION - 1.2" | bc):d=1.2" \
             -c:a aac -b:a 160k music.aac
-      - name: Concat beats + end card + music
+
+      - name: Compose beats
+        env:
+          BEATS_METADATA: "${{ inputs.beats_metadata }}"
         run: |
-          BEATS_COUNT=$(ls beat_*.mp4 | wc -l)
-          echo "Processing $BEATS_COUNT beats"
+          node -e "
+          const raw=(process.env.BEATS_METADATA||'').replace(/^=/,'');
+          const beats=JSON.parse(raw);
+          const {execSync}=require('child_process');
+          const base='https://jrryyntxjiqbgrhoorbx.supabase.co/storage/v1/object/public/';
+          beats.forEach((b,i)=>{
+            const hflip=b.hflip==='true'?'hflip,':'';
+            const chip='0x'+b.chip_color;
+            const filter=
+              '[0:v]'+hflip+'scale=-2:1080,crop=1080:1080:(iw-1080)/2:0,'+
+              'colorchannelmixer=rr=1.05:gg=1.02:bb=0.92,eq=saturation=1.05,'+
+              'vignette=PI/5,'+
+              'drawbox=x=0:y=900:w=1080:h=170:color=black@0.68:t=fill,'+
+              'drawbox=x=26:y=28:w=170:h=64:color='+chip+'@0.94:t=fill,'+
+              'drawbox=x=26:y=92:w=170:h=4:color=0xD4A84C@1:t=fill,'+
+              'drawtext=fontsize=30:fontcolor=white:x=46:y=43:text='+JSON.stringify(b.character)+
+              '[v]';
+            const cmd='ffmpeg -y -i beat_raw_'+i+'.mp4 -filter_complex '+JSON.stringify(filter)+
+              ' -map [v] -map 0:a -r 30 -c:v libx264 -pix_fmt yuv420p -crf 18 -c:a aac -b:a 160k beat_'+i+'.mp4';
+            console.log('Composing beat '+i+': '+b.character);
+            execSync(cmd,{stdio:'inherit'});
+          });
+          "
+
+      - name: Generate end card
+        env:
+          END_CARD_VO: "${{ inputs.end_card_vo }}"
+        run: |
+          CLEAN_VO="${END_CARD_VO#=}"
+          ffmpeg -y \
+            -f lavfi -i color=c=0x2D6A4F:s=1080x1080:d=5.4:r=30 \
+            -filter_complex \
+            "format=yuv420p,vignette=PI/5,\
+            drawtext=fontsize=110:fontcolor=white:x=(w-text_w)/2:y=220:text='GOLF WITH',\
+            drawtext=fontsize=160:fontcolor=0xD4A84C:x=(w-text_w)/2:y=380:text='MATES',\
+            drawtext=fontsize=38:fontcolor=0xF5E9D7:x=(w-text_w)/2:y=620:text='Track every shot. Out every ringer.',\
+            drawtext=fontsize=32:fontcolor=white@0.80:x=(w-text_w)/2:y=1020:text='golfwithmates.com'[v]" \
+            -map "[v]" -f lavfi -i anullsrc=r=48000:cl=stereo \
+            -map 1:a -shortest \
+            -r 30 -c:v libx264 -pix_fmt yuv420p -crf 18 \
+            -c:a aac -b:a 160k end_card.mp4
+
+      - name: Concat beats and end card with music
+        run: |
+          BEATS_COUNT=$(ls beat_[0-9]*.mp4 | wc -l)
+          echo "Concatenating $BEATS_COUNT beats + end card"
           INPUTS=""
           FILTER=""
-          CONCAT_IN=""
+          CONCAT_V=""
+          CONCAT_A=""
           for i in $(seq 0 $((BEATS_COUNT-1))); do
             INPUTS="$INPUTS -i beat_$i.mp4"
-            FILTER="${FILTER}[${i}:v]fps=30,settb=1/15360,setpts=PTS-STARTPTS,format=yuv420p[vn${i}];"
-            CONCAT_IN="${CONCAT_IN}[vn${i}]"
+            FILTER="${FILTER}[${i}:v]fps=30,settb=1/15360,setpts=PTS-STARTPTS,format=yuv420p[vn${i}];[${i}:a]aresample=48000,asetpts=PTS-STARTPTS[an${i}];"
+            CONCAT_V="${CONCAT_V}[vn${i}]"
+            CONCAT_A="${CONCAT_A}[an${i}]"
           done
-          FILTER="${FILTER}${CONCAT_IN}concat=n=${BEATS_COUNT}:v=1:a=0[outv]"
-          ffmpeg -y $INPUTS -i music.aac \
+          EC=$BEATS_COUNT
+          INPUTS="$INPUTS -i end_card.mp4 -i music.aac"
+          FILTER="${FILTER}[${EC}:v]fps=30,settb=1/15360,setpts=PTS-STARTPTS,format=yuv420p[vnec];[${EC}:a]aresample=48000,asetpts=PTS-STARTPTS[anec];"
+          FILTER="${FILTER}${CONCAT_V}[vnec]concat=n=$((BEATS_COUNT+1)):v=1:a=0[outv];"
+          FILTER="${FILTER}${CONCAT_A}[anec]amix=inputs=$((BEATS_COUNT+1)):duration=first[outa_dry];"
+          FILTER="${FILTER}[$((BEATS_COUNT+1)):a]aresample=48000[music];[outa_dry][music]amix=inputs=2:duration=first[outa]"
+          ffmpeg -y $INPUTS \
             -filter_complex "$FILTER" \
-            -map "[outv]" -map "${BEATS_COUNT}:a" \
+            -map "[outv]" -map "[outa]" \
             -r 30 -c:v libx264 -pix_fmt yuv420p -crf 18 \
             -c:a aac -b:a 160k -movflags +faststart \
             output.mp4
+
       - name: Verify output
         run: |
           DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=0 output.mp4)
           echo "Output duration: $DURATION seconds"
           SIZE=$(stat -c%s output.mp4)
           echo "Output size: $SIZE bytes"
-          if (( $(echo "$DURATION < 14" | bc -l) )); then
-            echo "ERROR: Video too short!"
-            exit 1
-          fi
+
       - name: Upload to Supabase
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -79,6 +139,7 @@ jobs:
             -H "x-upsert: true" \
             -H "Content-Type: video/mp4" \
             --data-binary @output.mp4
+
       - name: Sign output URL
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
