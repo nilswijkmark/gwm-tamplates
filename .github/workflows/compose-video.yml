@@ -30,7 +30,7 @@ jobs:
             base = "https://jrryyntxjiqbgrhoorbx.supabase.co/storage/v1/object/public/"
             for i, path in enumerate(beats):
                 subprocess.run(["curl", "-L", base + path, "-o", f"beat_{i}.mp4"])
-            '
+      '
       - name: Process music bed
         run: |
           DURATION=${{ inputs.total_duration }}
