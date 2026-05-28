@@ -76,21 +76,6 @@ jobs:
             const chipFile='chip_'+i+'.txt';
             fs.writeFileSync(chipFile,displayName);
 
-            const words=b.text.split(' ');
-            let chunks=[],cur=[];
-            words.forEach(w=>{
-              const test=[...cur,w].join(' ');
-              if(cur.length&&(test.length>28||cur.length>=5)){chunks.push(cur.join(' '));cur=[w];}
-              else cur.push(w);
-              if(/[.,?!;:]$/.test(w)&&cur.length){chunks.push(cur.join(' '));cur=[];}
-            });
-            if(cur.length)chunks.push(cur.join(' '));
-
-            const dur=parseFloat(b.duration_hint)||3;
-            const start=0.25;
-            const end=Math.max(start+0.4,Math.min(dur-0.1,dur));
-            const span=(end-start)/Math.max(1,chunks.length);
-
             const filterParts=[
               '[0:v]'+hflip+'scale=-2:1080,crop=1080:1080:(iw-1080)/2:0',
               'colorchannelmixer=rr=1.05:gg=1.02:bb=0.92',
@@ -102,17 +87,50 @@ jobs:
               'drawtext=fontsize=30:fontcolor=white:x=46:y=43:textfile='+chipFile
             ];
 
-            chunks.forEach((chunk,ci)=>{
-              const s=(start+ci*span).toFixed(2);
-              const e=(start+(ci+1)*span).toFixed(2);
-              const tf='caption_'+i+'_'+ci+'.txt';
-              fs.writeFileSync(tf,chunk);
-              filterParts.push('drawtext=fontsize=36:fontcolor=white:x=(w-text_w)/2:y=960:textfile='+tf+':enable=between(t\\\\,'+s+'\\\\,'+e+')');
-            });
+            const wordTs=b.word_timestamps||[];
+            if(wordTs.length>0){
+              let chunks=[],cur=[];
+              wordTs.forEach(w=>{
+                const test=[...cur,w].map(x=>x.word).join(' ');
+                if(cur.length&&(test.length>22||cur.length>=4)){chunks.push(cur);cur=[w];}
+                else cur.push(w);
+              });
+              if(cur.length)chunks.push(cur);
+
+              chunks.forEach((chunk,ci)=>{
+                const s=chunk[0].start.toFixed(2);
+                const e=chunk[chunk.length-1].end.toFixed(2);
+                const text=chunk.map(x=>x.word).join(' ');
+                const tf='caption_'+i+'_'+ci+'.txt';
+                fs.writeFileSync(tf,text);
+                filterParts.push('drawtext=fontsize=36:fontcolor=white:x=(w-text_w)/2:y=960:textfile='+tf+':enable=between(t\\\\,'+s+'\\\\,'+e+')');
+              });
+            } else {
+              const words=b.text.split(' ');
+              let chunks=[],cur=[];
+              words.forEach(w=>{
+                const test=[...cur,w].join(' ');
+                if(cur.length&&(test.length>22||cur.length>=4)){chunks.push(cur.join(' '));cur=[w];}
+                else cur.push(w);
+                if(/[.,?!;:]$/.test(w)&&cur.length){chunks.push(cur.join(' '));cur=[];}
+              });
+              if(cur.length)chunks.push(cur.join(' '));
+              const dur=parseFloat(b.duration_hint)||3;
+              const start=0.25;
+              const end=Math.max(start+0.4,Math.min(dur-0.1,dur));
+              const span=(end-start)/Math.max(1,chunks.length);
+              chunks.forEach((chunk,ci)=>{
+                const s=(start+ci*span).toFixed(2);
+                const e=(start+(ci+1)*span).toFixed(2);
+                const tf='caption_'+i+'_'+ci+'.txt';
+                fs.writeFileSync(tf,chunk);
+                filterParts.push('drawtext=fontsize=36:fontcolor=white:x=(w-text_w)/2:y=960:textfile='+tf+':enable=between(t\\\\,'+s+'\\\\,'+e+')');
+              });
+            }
 
             const filter=filterParts.join(',')+'[v]';
             const filterFile='filter_'+i+'.txt';
-            fs.writeFileSync(filterFile, filter);
+            fs.writeFileSync(filterFile,filter);
 
             const cmd='ffmpeg -y -i beat_raw_'+i+'.mp4 -filter_complex_script '+filterFile+
               ' -map [v] -map 0:a -r 30 -c:v libx264 -pix_fmt yuv420p -crf 18 -c:a aac -b:a 160k beat_'+i+'.mp4';
