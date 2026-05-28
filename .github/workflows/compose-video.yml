@@ -63,7 +63,7 @@ jobs:
 
           const displayNameMap={
             'Big Dave':'Big Dave','big_dave':'Big Dave','big dave':'Big Dave',
-            'Smug Tom':'Tom','smug_tom':'Tom','smug tom':'Tom',
+            'Smug Tom':'Tom','smug_tom':'Tom','smug tom':'Tom','tom':'Tom','Tom':'Tom',
             'Sam':'Sam','sam':'Sam'
           };
 
@@ -111,8 +111,6 @@ jobs:
             });
 
             const filter=filterParts.join(',')+'[v]';
-
-            // Write filter to file to avoid shell quoting issues
             const filterFile='filter_'+i+'.txt';
             fs.writeFileSync(filterFile, filter);
 
@@ -139,7 +137,7 @@ jobs:
             -f lavfi -i anullsrc=r=48000:cl=stereo \
             -i george_vo.mp3 \
             -filter_complex \
-            "[0:v]format=yuv420p,vignette=PI/5,\
+            "[0:v]format=yuv420p,vignette=angle=PI/5,\
             drawtext=fontsize=110:fontcolor=white:x=(w-text_w)/2:y=220:text='GOLF WITH',\
             drawtext=fontsize=160:fontcolor=0xD4A84C:x=(w-text_w)/2:y=380:text='MATES',\
             drawtext=fontsize=38:fontcolor=0xF5E9D7:x=(w-text_w)/2:y=620:text='Track every shot. Out every ringer.',\
