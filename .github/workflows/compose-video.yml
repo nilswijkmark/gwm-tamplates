@@ -74,20 +74,18 @@ jobs:
           "
 
       - name: Generate end card
-        env:
-          END_CARD_VO: "${{ inputs.end_card_vo }}"
         run: |
-          CLEAN_VO="${END_CARD_VO#=}"
           ffmpeg -y \
             -f lavfi -i color=c=0x2D6A4F:s=1080x1080:d=5.4:r=30 \
+            -f lavfi -i anullsrc=r=48000:cl=stereo \
             -filter_complex \
-            "format=yuv420p,vignette=PI/5,\
+            "[0:v]format=yuv420p,vignette=PI/5,\
             drawtext=fontsize=110:fontcolor=white:x=(w-text_w)/2:y=220:text='GOLF WITH',\
             drawtext=fontsize=160:fontcolor=0xD4A84C:x=(w-text_w)/2:y=380:text='MATES',\
             drawtext=fontsize=38:fontcolor=0xF5E9D7:x=(w-text_w)/2:y=620:text='Track every shot. Out every ringer.',\
             drawtext=fontsize=32:fontcolor=white@0.80:x=(w-text_w)/2:y=1020:text='golfwithmates.com'[v]" \
-            -map "[v]" -f lavfi -i anullsrc=r=48000:cl=stereo \
-            -map 1:a -shortest \
+            -map "[v]" -map 1:a \
+            -t 5.4 \
             -r 30 -c:v libx264 -pix_fmt yuv420p -crf 18 \
             -c:a aac -b:a 160k end_card.mp4
 
