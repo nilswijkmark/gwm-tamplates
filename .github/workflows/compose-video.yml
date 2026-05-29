@@ -68,9 +68,9 @@ jobs:
           const fs=require('fs');
 
           const displayNameMap={
-            'Big Dave':'Big Dave','big_dave':'Big Dave','big dave':'Big Dave',
-            'Smug Tom':'Tom','smug_tom':'Tom','smug tom':'Tom','tom':'Tom','Tom':'Tom',
-            'Sam':'Sam','sam':'Sam'
+           'Big Dave':'Big Dave','big_dave':'Big Dave','big dave':'Big Dave','dave':'Big Dave',
+           'Smug Tom':'Tom','smug_tom':'Tom','smug tom':'Tom','tom':'Tom','Tom':'Tom',
+           'Sam':'Sam','sam':'Sam'
           };
 
           beats.forEach((b,i)=>{
