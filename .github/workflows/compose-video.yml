@@ -48,7 +48,7 @@ jobs:
         run: |
           DURATION="${TOTAL_DURATION#=}"
           ffmpeg -y -i music_raw.mp3 -t $DURATION \
-            -af "volume=0.28,afade=t=in:st=0:d=0.6,afade=t=out:st=$(echo "$DURATION - 1.2" | bc):d=1.2" \
+            -af "volume=0.40,afade=t=in:st=0:d=0.6,afade=t=out:st=$(echo "$DURATION - 1.2" | bc):d=1.2" \
             -c:a aac -b:a 160k music.aac
 
       - name: Compose beats
