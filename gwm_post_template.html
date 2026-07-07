@@ -25,19 +25,18 @@
   .sub { font-size: 30px; font-weight: 500; line-height: 1.35; font-family: 'Inter', sans-serif; }
   .site { position: absolute; bottom: 52px; right: 72px; font-size: 18px; font-weight: 600; letter-spacing: .06em; font-family: 'Inter', sans-serif; opacity: 0.4; }
 
-  /* ── HERO ── bold gold orb, flag watermark */
+  /* ── HERO ── */
   .hero { background: #286649; }
   .hero .handle { color: rgba(255,255,255,0.25); }
   .hero .tag { color: #EDBD2A; }
   .hero .headline { color: #F7F8F5; }
   .hero .sub { color: #EDBD2A; }
   .hero .site { color: rgba(255,255,255,0.5); }
-  .hero .orb { position: absolute; top: -180px; right: -180px; width: 600px; height: 600px; border-radius: 50%; background: radial-gradient(circle, rgba(189,139,24,0.35) 0%, rgba(189,139,24,0.15) 40%, transparent 70%); }
-  .hero .orb2 { position: absolute; top: 60px; right: 60px; width: 280px; height: 280px; border-radius: 50%; border: 2px solid rgba(189,139,24,0.2); }
-  .hero .watermark { position: absolute; bottom: -80px; right: -20px; font-family: 'Bricolage Grotesque', sans-serif; font-size: 480px; font-weight: 800; color: rgba(0,0,0,0.12); line-height: 1; letter-spacing: -0.04em; pointer-events: none; user-select: none; }
+  .hero .flag { position: absolute; bottom: 40px; right: 40px; width: 380px; height: 520px; opacity: 0.1; }
+  .hero .orb { position: absolute; top: -180px; right: -180px; width: 560px; height: 560px; border-radius: 50%; background: radial-gradient(circle, rgba(189,139,24,0.3) 0%, rgba(189,139,24,0.1) 40%, transparent 70%); }
   .hero .stripe { position: absolute; bottom: 0; left: 0; right: 0; height: 8px; background: linear-gradient(90deg, #EDBD2A, #BD8B18 60%, transparent); }
 
-  /* ── NIGHT ── bold arc, mid-frame headline, strong gold bar */
+  /* ── NIGHT ── */
   .night { background: #101814; justify-content: center; padding-bottom: 0; padding-top: 0; }
   .night .handle { color: rgba(255,255,255,0.18); }
   .night .tag { color: #EDBD2A; margin-bottom: 32px; }
@@ -59,7 +58,7 @@
   .sand .topbar { position: absolute; top: 0; left: 0; right: 0; height: 8px; background: #286649; }
   .sand .watermark { position: absolute; bottom: -60px; right: -30px; font-family: 'Bricolage Grotesque', sans-serif; font-size: 520px; font-weight: 800; color: rgba(40,102,73,0.06); line-height: 1; letter-spacing: -0.04em; pointer-events: none; user-select: none; }
 
-  /* ── CREAM ── badge top-right, no handle */
+  /* ── CREAM ── */
   .cream { background: #F7F8F5; }
   .cream .tag { color: #BD8B18; }
   .cream .headline { color: #18241E; }
@@ -69,7 +68,7 @@
   .badge:empty { display: none; }
   .cream .topbar { position: absolute; top: 0; left: 0; right: 0; height: 5px; background: linear-gradient(90deg, #BD8B18, #EDBD2A); }
 
-  /* ── SKY ── rolling hills */
+  /* ── SKY ── */
   .sky { background: #DEEEF6; }
   .sky .handle { color: rgba(24,36,30,0.25); }
   .sky .tag { color: #286649; }
@@ -96,9 +95,18 @@
 <!-- HERO -->
 <div class="post hero" id="template-hero" style="display:none">
   <div class="orb"></div>
-  <div class="orb2"></div>
-  <div class="watermark">18</div>
   <div class="stripe"></div>
+  <!-- Golf flag outline — pin + flagstick + hole -->
+  <svg class="flag" viewBox="0 0 380 520" xmlns="http://www.w3.org/2000/svg" fill="none">
+    <!-- Flagstick -->
+    <line x1="120" y1="20" x2="120" y2="440" stroke="#F7F8F5" stroke-width="6" stroke-linecap="round"/>
+    <!-- Flag -->
+    <path d="M120 20 L300 80 L120 140 Z" stroke="#F7F8F5" stroke-width="5" stroke-linejoin="round"/>
+    <!-- Ground curve / hole -->
+    <ellipse cx="120" cy="450" rx="60" ry="16" stroke="#F7F8F5" stroke-width="5"/>
+    <!-- Hole cup -->
+    <ellipse cx="120" cy="450" rx="20" ry="6" stroke="#F7F8F5" stroke-width="3"/>
+  </svg>
   <svg class="logo" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
     <path style="fill:#b98b1d" d="M 330.46108,332.75 c -0.26189,-0.6875 -0.36027,-50.3 -0.21862,-110.25 0.25752,-108.99141 0.2577,-109.00002 2.30543,-109.29307 1.12633,-0.16118 10.12633,3.02602 20,7.08267 9.87366,4.05666 20.53961,8.4033 23.70211,9.65921 3.1625,1.25591 5.75,2.60651 5.75,3.00134 0,0.39482 -8.4375,4.00214 -18.75,8.01627 -10.3125,4.01412 -20.8875,8.19424 -23.5,9.28914 l -4.75,1.99073 v 90.87685 C 335,333.80135 334.99556,334 332.96862,334 c -1.11727,0 -2.24566,-0.5625 -2.50754,-1.25 z M 194,273.09288 c 0,-65.22378 -0.13543,-63.52817 5.54774,-69.45746 6.06403,-6.32662 16.95398,-8.40788 24.96084,-4.77044 4.30308,1.95485 10.03984,7.81708 11.55841,11.81121 0.53858,1.41659 0.93301,27.07846 0.93301,60.7028 v 58.24879 l -18.70851,1.25281 c -10.28967,0.68905 -19.96467,1.50405 -21.5,1.81111 L 194,333.25 Z m 86.5,57.87658 c -5.5,-0.404 -14.12675,-0.7874 -19.17054,-0.852 L 252.15891,330 l -0.41937,-2.75 c -0.23066,-1.5125 -0.37891,-28.85 -0.32946,-60.75 0.0847,-54.65057 0.19847,-58.21846 1.96953,-61.78302 6.3234,-12.72686 23.68981,-16.34115 34.41344,-7.16212 7.48679,6.4084 7.28708,4.32138 6.97996,72.94514 -0.26945,60.20351 -0.29912,61.00133 -2.27301,61.10201 -1.1,0.0561 -6.5,-0.22854 -12,-0.63255 z M 211.64255,191.00301 c -9.21348,-2.86167 -12.5139,-14.35275 -6.05779,-21.09148 8.50101,-8.87314 23.41524,-3.78872 23.41524,7.98252 0,7.4901 -4.04657,12.40208 -11.1038,13.47847 -1.86791,0.2849 -4.68205,0.11862 -6.25365,-0.36951 z m 54.77741,-6.88869 C 263.15575,182.12381 260,176.66053 260,173 c 0,-3.70266 3.04135,-8.86244 6.4745,-10.98424 8.80485,-5.44169 20.79823,0.89241 20.79823,10.98424 0,10.00166 -12.10079,16.45127 -20.85277,11.11432 z"/>
     <path style="fill:#f7f8f5" d="m 393,398.32239 c -17.36904,-1.77429 -32.80651,-4.17911 -51,-7.94469 -11.825,-2.44747 -30.275,-6.24286 -41,-8.4342 -61.13624,-12.49142 -114.58907,-14.96163 -170.79541,-7.89296 -27.17234,3.41727 -59.703962,9.83074 -83.156644,16.39398 -6.848629,1.91659 -12.609187,3.32757 -12.801239,3.13552 C 33.286126,392.61946 47.080815,384.0949 59.5,377.97453 97.782732,359.10819 152.92967,347.24546 222,343.01895 c 67.37574,-4.12281 151.61977,4.78545 226.63216,23.96489 24.92358,6.37255 30.36784,7.98309 30.36784,8.98353 0,1.35013 -6.25982,6.43818 -12.83479,10.43227 -14.16933,8.60741 -32.78667,12.72166 -56.29355,12.44032 -7.35441,-0.088 -14.94666,-0.32092 -16.87166,-0.51757 z"/>
