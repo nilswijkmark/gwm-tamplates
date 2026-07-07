@@ -67,7 +67,7 @@
   .badge:empty { display: none; }
   .cream .topbar { position: absolute; top: 0; left: 0; right: 0; height: 5px; background: linear-gradient(90deg, #BD8B18, #EDBD2A); }
 
-  /* ── SKY ── rolling hills, stronger presence */
+  /* ── SKY ── rolling hills, no circle */
   .sky { background: #DEEEF6; }
   .sky .handle { color: rgba(24,36,30,0.25); }
   .sky .tag { color: #286649; }
@@ -76,7 +76,6 @@
   .sky .site { color: #18241E; }
   .sky .stripe { position: absolute; top: 0; left: 0; right: 0; height: 7px; background: linear-gradient(90deg, #286649 0%, #329969 60%, transparent 100%); }
   .sky .hills { position: absolute; bottom: 0; left: 0; right: 0; height: 340px; }
-  .sky .orb { position: absolute; top: 60px; right: 60px; width: 160px; height: 160px; border-radius: 50%; background: radial-gradient(circle, rgba(24,95,165,0.12) 0%, transparent 70%); border: 1.5px solid rgba(24,95,165,0.2); }
 
   /* ── STAT ── */
   .stat { background: #286649; align-items: center; justify-content: center; gap: 8px; }
@@ -139,7 +138,7 @@
   <span class="site">golfwithmates.com</span>
 </div>
 
-<!-- CREAM — no handle, badge top-right -->
+<!-- CREAM -->
 <div class="post cream" id="template-cream" style="display:none">
   <div class="topbar"></div>
   <svg class="logo" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
@@ -153,10 +152,9 @@
   <span class="site">golfwithmates.com</span>
 </div>
 
-<!-- SKY — rolling hills -->
+<!-- SKY -->
 <div class="post sky" id="template-sky" style="display:none">
   <div class="stripe"></div>
-  <div class="orb"></div>
   <svg class="hills" viewBox="0 0 1080 340" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
     <path d="M0,340 L0,220 Q80,160 180,200 Q280,240 380,180 Q460,130 540,160 Q620,190 700,140 Q780,90 880,130 Q960,160 1080,100 L1080,340 Z" fill="rgba(40,102,73,0.06)"/>
     <path d="M0,340 L0,260 Q100,200 220,240 Q340,280 440,220 Q520,170 600,200 Q680,230 780,170 Q860,120 980,160 Q1040,180 1080,150 L1080,340 Z" fill="rgba(40,102,73,0.04)"/>
